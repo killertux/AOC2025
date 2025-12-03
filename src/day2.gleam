@@ -7,7 +7,7 @@ import gleam/string
 import gleam_community/maths
 import simplifile
 
-pub fn day2() -> Result(Nil, String) {
+pub fn execute() -> Result(Nil, String) {
   io.println("Day 2")
   result.all([
     day_part1("inputs/day2/example1.txt"),

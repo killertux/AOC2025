@@ -5,7 +5,7 @@ import gleam/result
 import gleam/string
 import simplifile
 
-pub fn day1() -> Result(Nil, String) {
+pub fn execute() -> Result(Nil, String) {
   io.println("Day 1")
   result.all([
     day_part1("inputs/day1/example1.txt"),
