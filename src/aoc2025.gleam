@@ -5,6 +5,7 @@ import day3
 import day4
 import day5
 import day6
+import day7
 import gleam/io
 
 pub fn main() -> Nil {
@@ -16,6 +17,7 @@ pub fn main() -> Nil {
       ["4"] -> day4.execute()
       ["5"] -> day5.execute()
       ["6"] -> day6.execute()
+      ["7"] -> day7.execute()
       _ -> Ok(io.println("You need to pass the day to run"))
     }
   {
