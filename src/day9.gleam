@@ -48,22 +48,35 @@ fn day_part2(file_path: String) -> Result(Nil, String) {
     |> list.filter(fn(segment) { { segment.0 }.x == { segment.1 }.x })
 
   list.combination_pairs(red_corners)
-  |> list.filter(fn(pairs) {
-    let min_x = int.min({ pairs.0 }.x, { pairs.1 }.x)
-    let max_x = int.max({ pairs.0 }.x, { pairs.1 }.x)
-    let min_y = int.min({ pairs.0 }.y, { pairs.1 }.y)
-    let max_y = int.max({ pairs.0 }.y, { pairs.1 }.y)
-    !list.any(red_corners, fn(pos) {
-      pos.x > min_x && pos.x < max_x && pos.y > min_y && pos.y < max_y
-    })
-    && check_line_is_in_polygon(pairs, vertical_lines)
-  })
   |> list.map(fn(pairs) {
-    { int.absolute_value({ pairs.0 }.x - { pairs.1 }.x) + 1 }
-    * { int.absolute_value({ pairs.0 }.y - { pairs.1 }.y) + 1 }
+    #(
+      { int.absolute_value({ pairs.0 }.x - { pairs.1 }.x) + 1 }
+        * { int.absolute_value({ pairs.0 }.y - { pairs.1 }.y) + 1 },
+      pairs,
+    )
   })
-  |> list.max(int.compare)
-  |> result.unwrap(0)
+  |> list.fold(0, fn(max, area_and_pairs) {
+    let area = area_and_pairs.0
+    case area > max {
+      True -> {
+        let pairs = area_and_pairs.1
+        let min_x = int.min({ pairs.0 }.x, { pairs.1 }.x)
+        let max_x = int.max({ pairs.0 }.x, { pairs.1 }.x)
+        let min_y = int.min({ pairs.0 }.y, { pairs.1 }.y)
+        let max_y = int.max({ pairs.0 }.y, { pairs.1 }.y)
+        case
+          !list.any(red_corners, fn(pos) {
+            pos.x > min_x && pos.x < max_x && pos.y > min_y && pos.y < max_y
+          })
+          && check_line_is_in_polygon(pairs, vertical_lines)
+        {
+          True -> area
+          False -> max
+        }
+      }
+      False -> max
+    }
+  })
   |> int.to_string
   |> io.println
   Ok(Nil)
