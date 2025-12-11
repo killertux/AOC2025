@@ -15,8 +15,8 @@ pub fn execute() -> Result(Nil, String) {
     // day_part1("inputs/day10/example1.txt"),
     // day_part1("inputs/day10/input1.txt"),
     // day_part2("inputs/day10/example1.txt"),
-    // day_part2("inputs/day10/input1.txt"),
-    day_part2("inputs/day10/test.txt"),
+    day_part2("inputs/day10/input1.txt"),
+    // day_part2("inputs/day10/test.txt"),
   ])
   |> result.map(fn(_) { Nil })
 }
@@ -39,7 +39,7 @@ fn day_part2(file_path: String) -> Result(Nil, String) {
     simplifile.read(file_path) |> result.replace_error("Error reading file"),
   )
   use machine <- result.try(parse_machines(contents))
-  machine
+  utils.enumerate(machine)
   |> list.map(solve_machine)
   |> list.fold(0, fn(acc, n) { acc + n })
   |> int.to_string
@@ -47,8 +47,9 @@ fn day_part2(file_path: String) -> Result(Nil, String) {
   Ok(Nil)
 }
 
-fn solve_machine(machine: Machine) -> Int {
-  utils.dbg(machine)
+fn solve_machine(machine: #(Int, Machine)) -> Int {
+  // utils.dbg(machine.0)
+  let machine = machine.1
   let expressions =
     list.map(utils.enumerate(machine.joltage), fn(joltage) {
       list.append(
@@ -99,11 +100,11 @@ fn solve_machine(machine: Machine) -> Int {
     })
   ]
   let n = solve_tableau(tableau)
-  float.round({ result_expression.constant } -. n)
+  float.round({ result_expression.constant } -. n) |> utils.dbg
 }
 
 fn solve_tableau(tableau: List(List(Float))) -> Float {
-  case loop_solve_tableau(loop_solve_tableau_dual(tableau)) {
+  case loop_solve_tableau_bland(loop_solve_tableau_dual(tableau)) {
     [first, ..] -> {
       list.last(first)
       |> result.lazy_unwrap(fn() { panic as "Invalid tableau" })
@@ -113,10 +114,6 @@ fn solve_tableau(tableau: List(List(Float))) -> Float {
 }
 
 fn loop_solve_tableau_dual(tableau: List(List(Float))) -> List(List(Float)) {
-  let tableau =
-    list.map(tableau, fn(row) {
-      list.map(row, fn(column) { float.to_precision(column, 5) })
-    })
   case tableau {
     [first, ..] -> {
       case
@@ -143,36 +140,70 @@ fn loop_solve_tableau_dual(tableau: List(List(Float))) -> List(List(Float)) {
   }
 }
 
+// fn find_dual_pivot(tableau: List(List(Float))) -> #(Int, Int, Float) {
+//   {
+//     utils.enumerate(tableau |> list.drop(1))
+//     |> list.fold(#(#(0, 0, 0.0), 10_000.0), fn(best, row) {
+//       let last = list.last(row.1) |> result.unwrap(0.0)
+//       case last <. best.1, last != 0.0 {
+//         True, True -> {
+//           let #(pivot_row, pivot) =
+//             utils.enumerate(row.1)
+//             |> list.fold(#(0, 100_000.0), fn(best, col) {
+//               let n = col.1 /. last
+//               case n <. best.1, col.1 != 0.0 {
+//                 True, True -> col
+//                 _, _ -> best
+//               }
+//             })
+//           #(#(row.0 + 1, pivot_row, pivot), last)
+//         }
+//         _, _ -> best
+//       }
+//     })
+//   }.0
+// }
+//
 fn find_dual_pivot(tableau: List(List(Float))) -> #(Int, Int, Float) {
-  {
-    utils.enumerate(tableau |> list.drop(1))
-    |> list.fold(#(#(0, 0, 0.0), 10_000.0), fn(best, row) {
-      let last = list.last(row.1) |> result.unwrap(0.0)
-      case last <. best.1, last != 0.0 {
-        True, True -> {
-          let #(pivot_row, pivot) =
-            utils.enumerate(row.1)
-            |> list.fold(#(0, 100_000.0), fn(best, col) {
-              let n = col.1 /. last
-              case n <. best.1, col.1 != 0.0 {
-                True, True -> col
-                _, _ -> best
-              }
-            })
-          #(#(row.0 + 1, pivot_row, pivot), last)
-        }
-        _, _ -> best
-      }
+  let rows = utils.enumerate(tableau |> list.drop(1))
+
+  let pivot_row_opt =
+    rows
+    |> list.filter(fn(r) {
+      let b = list.last(r.1) |> result.unwrap(0.0)
+      b <. 0.0
     })
-  }.0
+    |> list.sort(fn(a, b) { int.compare(a.0, b.0) })
+    |> list.first
+
+  case pivot_row_opt {
+    Error(_) -> #(0, 0, 0.0)
+
+    Ok(p_row) -> {
+      let row_index = p_row.0 + 1
+
+      let row_vals = p_row.1
+
+      let pivot_col_opt =
+        utils.enumerate(row_vals)
+        |> list.filter(fn(c) { c.1 <. 0.0 })
+        |> list.sort(fn(a, b) { int.compare(a.0, b.0) })
+        |> list.first
+
+      case pivot_col_opt {
+        Error(_) -> #(row_index, 0, 0.0)
+
+        Ok(col) -> {
+          let pivot_column = col.0
+          let pivot_value = col.1
+          #(row_index, pivot_column, pivot_value)
+        }
+      }
+    }
+  }
 }
 
-fn loop_solve_tableau(tableau: List(List(Float))) -> List(List(Float)) {
-  let tableau =
-    list.map(tableau, fn(row) {
-      list.map(row, fn(column) { float.to_precision(column, 4) })
-    })
-  utils.dbg(tableau)
+fn loop_solve_tableau(tableau: List(List(Float)), n: Int) -> List(List(Float)) {
   case tableau {
     [first, ..rest] -> {
       let min_from_header =
@@ -190,11 +221,38 @@ fn loop_solve_tableau(tableau: List(List(Float))) -> List(List(Float)) {
         False -> {
           let pivot_column = min_from_header.0
           let #(pivot_row, pivot) = find_pivot_row(rest, pivot_column)
-          // utils.dbg(pivot_row)
-          // utils.dbg(pivot_column)
-          // utils.dbg(pivot)
 
-          loop_solve_tableau(apply_modifications(
+          loop_solve_tableau(
+            apply_modifications(tableau, pivot_row, pivot_column, pivot),
+            n + 1,
+          )
+        }
+      }
+    }
+    [] -> panic as "Invalid tableau"
+  }
+}
+
+fn loop_solve_tableau_bland(tableau: List(List(Float))) -> List(List(Float)) {
+  case tableau {
+    [first, ..rest] -> {
+      let header = first |> list.reverse() |> list.drop(1) |> list.reverse()
+      let indexed_header = utils.enumerate(header)
+
+      let entering =
+        indexed_header
+        |> list.filter(fn(col) { col.1 <. 0.0 })
+        |> list.sort(fn(a, b) { int.compare(a.0, b.0) })
+        |> list.first
+
+      case entering {
+        Error(_) -> tableau
+
+        Ok(pivot_column_pair) -> {
+          let pivot_column = pivot_column_pair.0
+          let #(pivot_row, pivot) = find_pivot_row_bland(rest, pivot_column)
+
+          loop_solve_tableau_bland(apply_modifications(
             tableau,
             pivot_row,
             pivot_column,
@@ -205,6 +263,55 @@ fn loop_solve_tableau(tableau: List(List(Float))) -> List(List(Float)) {
     }
     [] -> panic as "Invalid tableau"
   }
+}
+
+fn find_pivot_row_bland(
+  rest: List(List(Float)),
+  pivot_column: Int,
+) -> #(Int, Float) {
+  let candidates =
+    utils.enumerate(rest)
+    |> list.filter_map(fn(row) {
+      let row_index = row.0
+      let row_vals = row.1
+
+      let pivot_val =
+        utils.enumerate(row_vals)
+        |> list.find_map(fn(col) {
+          case col.0 == pivot_column {
+            True -> Ok(col.1)
+            False -> Error(Nil)
+          }
+        })
+        |> result.unwrap(0.0)
+
+      case pivot_val >. 0.0 {
+        True -> {
+          let b = list.last(row_vals) |> result.unwrap(0.0)
+          let ratio = b /. pivot_val
+          Ok(#(row_index, pivot_val, ratio))
+        }
+        False -> Error(Nil)
+      }
+    })
+
+  let smallest_ratio =
+    candidates
+    |> list.fold(10_000.0, fn(best, c) {
+      case c.2 <. best {
+        True -> c.2
+        False -> best
+      }
+    })
+
+  let chosen =
+    candidates
+    |> list.filter(fn(c) { c.2 == smallest_ratio })
+    |> list.sort(fn(a, b) { int.compare(a.0, b.0) })
+    |> list.first
+    |> result.unwrap(#(0, 0.0, 0.0))
+
+  #(chosen.0 + 1, chosen.1)
 }
 
 fn apply_modifications(
@@ -224,7 +331,6 @@ fn apply_modifications(
     })
     |> result.unwrap([])
     |> list.map(fn(n) { n /. pivot })
-  utils.dbg(pivot_row_transformed)
 
   tableau_enumerated
   |> list.map(fn(row) {
@@ -290,20 +396,29 @@ fn find_pivot_row(rest: List(List(Float)), pivot_column: Int) -> #(Int, Float) {
 fn replace_vars(matrix: List(List(Float))) -> dict.Dict(Int, Expr) {
   list.reverse(matrix)
   |> list.fold(dict.new(), fn(vars: dict.Dict(Int, Expr), row) {
-    let #(pivot_var, expr) = row_into_expr(row, [])
-
-    let expr = do_replacement(expr, vars)
     case
-      list.all(expr.vars, fn(v) {
-        case v != 0.0 {
-          True -> False
-          False -> True
-        }
+      list.all(list.reverse(row) |> list.drop(1), fn(vars) {
+        vars == 0.0 || vars == -0.0
       })
-      && expr.constant == 0.0
     {
       True -> vars
-      False -> dict.insert(vars, pivot_var, expr)
+      False -> {
+        let #(pivot_var, expr) = row_into_expr(row, [])
+
+        let expr = do_replacement(expr, vars)
+        case
+          list.all(expr.vars, fn(v) {
+            case v != 0.0 {
+              True -> False
+              False -> True
+            }
+          })
+          && expr.constant == 0.0
+        {
+          True -> vars
+          False -> dict.insert(vars, pivot_var, expr)
+        }
+      }
     }
   })
 }
