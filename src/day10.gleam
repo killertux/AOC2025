@@ -3,7 +3,6 @@ import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
-import gleam/option
 import gleam/result
 import gleam/string
 import simplifile
@@ -12,11 +11,10 @@ import utils
 pub fn execute() -> Result(Nil, String) {
   io.println("Day 10")
   result.all([
-    // day_part1("inputs/day10/example1.txt"),
-    // day_part1("inputs/day10/input1.txt"),
-    // day_part2("inputs/day10/example1.txt"),
-    // day_part2("inputs/day10/input1.txt"),
-    day_part2("inputs/day10/test.txt"),
+    day_part1("inputs/day10/example1.txt"),
+    day_part1("inputs/day10/input1.txt"),
+    day_part2("inputs/day10/example1.txt"),
+    day_part2("inputs/day10/input1.txt"),
   ])
   |> result.map(fn(_) { Nil })
 }
@@ -92,8 +90,8 @@ fn solve_machine(machine: #(Int, Machine)) -> Int {
       |> list.append([{ expr.1 }.constant *. -1.0])
     })
   ]
-  let n = solve_tableau(tableau |> utils.dbg())
-  float.round({ result_expression.constant } -. n) |> utils.dbg
+  let n = solve_tableau(tableau)
+  float.round({ result_expression.constant } -. n)
 }
 
 fn solve_tableau(tableau: List(List(Float))) -> Float {
@@ -116,8 +114,6 @@ fn solve_tableau(tableau: List(List(Float))) -> Float {
 }
 
 fn loop_solve_tableau_dual(tableau: List(List(Float))) -> List(List(Float)) {
-  utils.dbg("dual")
-  utils.dbg(tableau)
   case tableau {
     [first, ..] -> {
       case
@@ -240,8 +236,6 @@ fn loop_solve_tableau(tableau: List(List(Float))) -> List(List(Float)) {
 }
 
 fn loop_solve_tableau_bland(tableau: List(List(Float))) -> List(List(Float)) {
-  utils.dbg("simplex")
-  utils.dbg(tableau)
   case tableau {
     [first, ..rest] -> {
       let header = first |> list.reverse() |> list.drop(1) |> list.reverse()
