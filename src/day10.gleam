@@ -15,8 +15,8 @@ pub fn execute() -> Result(Nil, String) {
     // day_part1("inputs/day10/example1.txt"),
     // day_part1("inputs/day10/input1.txt"),
     // day_part2("inputs/day10/example1.txt"),
-    day_part2("inputs/day10/input1.txt"),
-    // day_part2("inputs/day10/test.txt"),
+    // day_part2("inputs/day10/input1.txt"),
+    day_part2("inputs/day10/test.txt"),
   ])
   |> result.map(fn(_) { Nil })
 }
@@ -48,29 +48,22 @@ fn day_part2(file_path: String) -> Result(Nil, String) {
 }
 
 fn solve_machine(machine: #(Int, Machine)) -> Int {
-  // utils.dbg(machine.0)
   let machine = machine.1
   let expressions =
     list.map(utils.enumerate(machine.joltage), fn(joltage) {
-      list.append(
+      Expr(
         list.map(machine.buttons, fn(button) {
           case list.contains(button.number, joltage.0) {
             True -> 1.0
             False -> 0.0
           }
         }),
-        [joltage.1 |> int.to_float],
+        joltage.1 |> int.to_float(),
       )
     })
-    |> apply_gauss()
-    |> list.filter(fn(row) { row |> list.any(fn(v) { v != 0.0 }) })
-    |> replace_vars()
 
-  let result_expression =
-    Expr(machine.buttons |> list.map(fn(_) { 1.0 }), 0.0)
-    |> do_replacement(expressions)
+  let result_expression = Expr(machine.buttons |> list.map(fn(_) { 1.0 }), 0.0)
 
-  let expressions = dict.values(expressions)
   let free_variables_n = list.length(expressions)
   let tableau = [
     list.append(
@@ -96,24 +89,35 @@ fn solve_machine(machine: #(Int, Machine)) -> Int {
           }
         }),
       )
-      |> list.append([{ expr.1 }.constant])
+      |> list.append([{ expr.1 }.constant *. -1.0])
     })
   ]
-  let n = solve_tableau(tableau)
+  let n = solve_tableau(tableau |> utils.dbg())
   float.round({ result_expression.constant } -. n) |> utils.dbg
 }
 
 fn solve_tableau(tableau: List(List(Float))) -> Float {
   case loop_solve_tableau_bland(loop_solve_tableau_dual(tableau)) {
-    [first, ..] -> {
-      list.last(first)
-      |> result.lazy_unwrap(fn() { panic as "Invalid tableau" })
+    [first, ..rest] -> {
+      case
+        list.any(rest, fn(row) {
+          row |> list.last() |> result.unwrap(0.0) <. 0.0
+        })
+      {
+        True -> solve_tableau([first, ..rest])
+        False -> {
+          list.last(first)
+          |> result.lazy_unwrap(fn() { panic as "Invalid tableau" })
+        }
+      }
     }
     [] -> panic as "Tableau should not be empty"
   }
 }
 
 fn loop_solve_tableau_dual(tableau: List(List(Float))) -> List(List(Float)) {
+  utils.dbg("dual")
+  utils.dbg(tableau)
   case tableau {
     [first, ..] -> {
       case
@@ -203,7 +207,7 @@ fn find_dual_pivot(tableau: List(List(Float))) -> #(Int, Int, Float) {
   }
 }
 
-fn loop_solve_tableau(tableau: List(List(Float)), n: Int) -> List(List(Float)) {
+fn loop_solve_tableau(tableau: List(List(Float))) -> List(List(Float)) {
   case tableau {
     [first, ..rest] -> {
       let min_from_header =
@@ -222,10 +226,12 @@ fn loop_solve_tableau(tableau: List(List(Float)), n: Int) -> List(List(Float)) {
           let pivot_column = min_from_header.0
           let #(pivot_row, pivot) = find_pivot_row(rest, pivot_column)
 
-          loop_solve_tableau(
-            apply_modifications(tableau, pivot_row, pivot_column, pivot),
-            n + 1,
-          )
+          loop_solve_tableau(apply_modifications(
+            tableau,
+            pivot_row,
+            pivot_column,
+            pivot,
+          ))
         }
       }
     }
@@ -234,6 +240,8 @@ fn loop_solve_tableau(tableau: List(List(Float)), n: Int) -> List(List(Float)) {
 }
 
 fn loop_solve_tableau_bland(tableau: List(List(Float))) -> List(List(Float)) {
+  utils.dbg("simplex")
+  utils.dbg(tableau)
   case tableau {
     [first, ..rest] -> {
       let header = first |> list.reverse() |> list.drop(1) |> list.reverse()
