@@ -2,6 +2,7 @@ import argv
 import day1
 import day10
 import day11
+import day12
 import day2
 import day3
 import day4
@@ -26,6 +27,7 @@ pub fn main() -> Nil {
       ["9"] -> day9.execute()
       ["10"] -> day10.execute()
       ["11"] -> day11.execute()
+      ["12"] -> day12.execute()
       _ -> Ok(io.println("You need to pass the day to run"))
     }
   {
